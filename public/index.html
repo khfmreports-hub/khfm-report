@@ -83,10 +83,10 @@
     <div style="position:absolute;top:-1px;right:-1px;width:16px;height:16px;border-top:2px solid var(--accent);border-right:2px solid var(--accent);"></div>
     <div style="position:absolute;bottom:-1px;left:-1px;width:16px;height:16px;border-bottom:2px solid var(--accent);border-left:2px solid var(--accent);"></div>
     <div style="position:absolute;bottom:-1px;right:-1px;width:16px;height:16px;border-bottom:2px solid var(--accent);border-right:2px solid var(--accent);"></div>
-    <p class="mono" style="font-size:11px;letter-spacing:.15em;color:var(--steel);margin:0 0 4px;text-transform:uppercase;">Application</p>
+    <p class="mono" style="font-size:11px;letter-spacing:.15em;color:var(--steel);margin:0 0 4px;text-transform:uppercase;">Reports</p>
     <h1 class="disp" style="font-size:30px;margin:0 0 24px;">KHFM Report</h1>
     <input type="password" id="pw-input" placeholder="Enter password" style="margin-bottom:12px;">
-    <button class="primary" style="width:100%;" onclick="tryUnlock()">Login</button>
+    <button class="primary" style="width:100%;" onclick="tryUnlock()">Enter Passwords</button>
     <p id="pw-error" class="mono" style="color:var(--loss);font-size:12px;margin:12px 0 0;display:none;">Incorrect password. Try again.</p>
   </div>
 </div>
@@ -214,7 +214,41 @@ async function manageLogins(){
         </div>
       </div>
     `).join('')}
+    <div style="background:var(--surface);border:1px solid var(--accent);padding:16px 20px;margin-top:24px;">
+      <p style="font-weight:600;margin:0 0 4px;">Backup & restore</p>
+      <p style="color:var(--steel);font-size:12px;margin:0 0 16px;">Download a backup before making any code changes on GitHub — a redeploy resets all data. Restore brings a backup back.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button onclick="downloadBackup()">Download backup</button>
+        <label style="display:inline-block;">
+          <input type="file" id="restore-file" accept="application/json" style="display:none;" onchange="restoreBackup(this.files[0])">
+          <button onclick="document.getElementById('restore-file').click()">Restore from backup</button>
+        </label>
+      </div>
+    </div>
   `;
+}
+async function downloadBackup(){
+  try{
+    const res = await fetch('/api/admin/backup', {headers:{'Authorization':'Bearer '+token}});
+    if(!res.ok){ const d = await res.json().catch(()=>({})); throw new Error(d.error||'Backup failed.'); }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'khfm-backup-'+new Date().toISOString().slice(0,10)+'.json';
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+  }catch(e){ alert(e.message); }
+}
+async function restoreBackup(file){
+  if(!file) return;
+  if(!confirm('This replaces ALL current data and passwords with the backup file. Continue?')) return;
+  try{
+    const text = await file.text();
+    const parsed = JSON.parse(text);
+    await api('/api/admin/restore', {method:'POST', body: JSON.stringify(parsed)});
+    alert('Restored. Please log in again.');
+    logout();
+  }catch(e){ alert('Restore failed: '+e.message); }
 }
 async function setLoginPassword(profileId){
   const input = document.getElementById('np-'+profileId);
