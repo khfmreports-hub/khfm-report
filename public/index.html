@@ -456,7 +456,7 @@ function renderDashboard(page){
         <tr>
           <th>Site</th><th>Type</th><th class="num">Salary</th><th class="num">P/L (reported)</th>
           <th class="num">Vendor</th><th class="num">PF/ESIC</th><th class="num">Avg labour</th>
-          <th class="num">Billing</th><th class="num">Special</th><th class="num">Subcontractor P/L</th><th class="num">Net</th>
+          <th class="num">Billing</th><th class="num">Other</th><th class="num">Net</th>
         </tr>
         ${rows.map(r=>`
           <tr>
@@ -469,11 +469,11 @@ function renderDashboard(page){
             <td class="num mono">${fmtNum(r.avgLabour)}</td>
             <td class="num mono">${fmtCurrency(r.billing)}</td>
             <td class="num mono">${fmtCurrency(r.special)}</td>
-            <td class="num mono">${fmtCurrency(r.subPl)}</td>
-            <td class="num mono" style="font-weight:600;background:${r.net>=0?'var(--profit-bg)':'var(--loss-bg)'};color:${r.net>=0?'var(--profit)':'var(--loss)'};">${fmtCurrency(r.net)}</td>
+            
+           <td class="num mono" style="font-weight:600;background:${r.net>=0?'var(--profit-bg)':'var(--loss-bg)'};color:${r.net>=0?'var(--profit)':'var(--loss)'};">${fmtCurrency(r.net)}</td>
           </tr>
         `).join('')}
-        ${rows.length===0?'<tr><td colspan="11" style="color:var(--steel);">Add sites in Site master to see the dashboard.</td></tr>':''}
+        ${rows.length===0?'<tr><td colspan="10" style="color:var(--steel);">Add sites in Site master to see the dashboard.</td></tr>':''}
         <tr style="font-weight:600;">
           <td>Grand total</td><td></td>
           <td class="num mono">${fmtCurrency(totals.salary)}</td>
@@ -483,7 +483,7 @@ function renderDashboard(page){
           <td></td>
           <td class="num mono">${fmtCurrency(totals.billing)}</td>
           <td class="num mono">${fmtCurrency(totals.special)}</td>
-          <td class="num mono">${fmtCurrency(totals.subPl)}</td>
+          
           <td class="num mono">${fmtCurrency(totals.net)}</td>
         </tr>
       </table>
