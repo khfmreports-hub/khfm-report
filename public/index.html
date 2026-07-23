@@ -426,25 +426,76 @@ function removeSub(id){
 }
 
 function renderDashboard(page){
+  const monthlyRows = MONTHS.map(m=>{
+    let salary=0, vendor=0, pf=0, billing=0, special=0;
+    state.sites.forEach(site=>{
+      salary += ((state.salary||{})[site.id]||{})[m] || 0;
+      vendor += ((state.vendor_expenses||{})[site.id]||{})[m] || 0;
+      pf += ((state.pf_esic||{})[site.id]||{})[m] || 0;
+      billing += ((state.billing||{})[site.id]||{})[m] || 0;
+      special += ((state.special_expenses||{})[site.id]||{})[m] || 0;
+    });
+    const net = billing - salary - vendor - pf - special;
+    return {month:m, salary, vendor, pf, billing, special, net};
+  });
+  const monthlyTotal = monthlyRows.reduce((a,r)=>({
+    salary:a.salary+r.salary, vendor:a.vendor+r.vendor, pf:a.pf+r.pf,
+    billing:a.billing+r.billing, special:a.special+r.special, net:a.net+r.net
+  }), {salary:0,vendor:0,pf:0,billing:0,special:0,net:0});
+
   const rows = state.sites.map(site=>{
     const salary = totalOf((state.salary||{})[site.id]);
+    const pl = totalOf((state.profit_loss||{})[site.id]);
     const vendor = totalOf((state.vendor_expenses||{})[site.id]);
     const pf = totalOf((state.pf_esic||{})[site.id]);
     const labour = (state.labour_strength||{})[site.id];
     const avgLabour = labour ? totalOf(labour)/MONTHS.length : 0;
     const billing = totalOf((state.billing||{})[site.id]);
     const special = totalOf((state.special_expenses||{})[site.id]);
+    const subPl = (state.subcontractor_pl||[]).filter(r=>r.siteId===site.id).reduce((sum,r)=>sum+totalOf(r),0);
     const net = billing - salary - vendor - pf - special;
-    return {site, salary, vendor, pf, avgLabour, billing, special, net};
+    return {site, salary, pl, vendor, pf, avgLabour, billing, special, subPl, net};
   });
   const totals = rows.reduce((a,r)=>({
-    salary:a.salary+r.salary, vendor:a.vendor+r.vendor, pf:a.pf+r.pf,
-    billing:a.billing+r.billing, special:a.special+r.special, net:a.net+r.net
-  }), {salary:0,vendor:0,pf:0,billing:0,special:0,net:0});
+    salary:a.salary+r.salary, pl:a.pl+r.pl, vendor:a.vendor+r.vendor, pf:a.pf+r.pf,
+    billing:a.billing+r.billing, special:a.special+r.special, subPl:a.subPl+r.subPl, net:a.net+r.net
+  }), {salary:0,pl:0,vendor:0,pf:0,billing:0,special:0,subPl:0,net:0});
 
   page.innerHTML = `
     <h2 class="disp" style="font-size:26px;margin:0 0 4px;">Dashboard</h2>
-    <p style="color:var(--steel);font-size:13px;margin:0 0 24px;">2026 full-year (Jan-Dec) summary across all sites, computed live.</p>
+    <p style="color:var(--steel);font-size:13px;margin:0 0 24px;">Monthly and full-year summary across all sites, computed live.</p>
+
+    <h3 class="disp" style="font-size:18px;margin:0 0 8px;">Monthly summary — all sites combined</h3>
+    <div style="overflow-x:auto;margin-bottom:32px;">
+    <table style="min-width:800px;">
+      <tr>
+        <th>Month</th><th class="num">Salary</th><th class="num">Vendor</th>
+        <th class="num">PF/ESIC</th><th class="num">Billing</th><th class="num">Other</th><th class="num">P/L</th>
+      </tr>
+      ${monthlyRows.map(r=>`
+        <tr>
+          <td>${MONTH_LABELS[r.month]}</td>
+          <td class="num mono">${fmtCurrency(r.salary)}</td>
+          <td class="num mono">${fmtCurrency(r.vendor)}</td>
+          <td class="num mono">${fmtCurrency(r.pf)}</td>
+          <td class="num mono">${fmtCurrency(r.billing)}</td>
+          <td class="num mono">${fmtCurrency(r.special)}</td>
+          <td class="num mono" style="font-weight:600;background:${r.net>=0?'var(--profit-bg)':'var(--loss-bg)'};color:${r.net>=0?'var(--profit)':'var(--loss)'};">${fmtCurrency(r.net)}</td>
+        </tr>
+      `).join('')}
+      <tr style="font-weight:600;">
+        <td>Full year</td>
+        <td class="num mono">${fmtCurrency(monthlyTotal.salary)}</td>
+        <td class="num mono">${fmtCurrency(monthlyTotal.vendor)}</td>
+        <td class="num mono">${fmtCurrency(monthlyTotal.pf)}</td>
+        <td class="num mono">${fmtCurrency(monthlyTotal.billing)}</td>
+        <td class="num mono">${fmtCurrency(monthlyTotal.special)}</td>
+        <td class="num mono">${fmtCurrency(monthlyTotal.net)}</td>
+      </tr>
+    </table>
+    </div>
+
+    <h3 class="disp" style="font-size:18px;margin:0 0 8px;">Per-site summary — full year 2026</h3>
     <div style="position:relative;border:1px solid var(--line);padding:8px;overflow-x:auto;">
       <div style="position:absolute;top:-1px;left:-1px;width:14px;height:14px;border-top:2px solid var(--accent);border-left:2px solid var(--accent);"></div>
       <div style="position:absolute;top:-1px;right:-1px;width:14px;height:14px;border-top:2px solid var(--accent);border-right:2px solid var(--accent);"></div>
