@@ -7,7 +7,13 @@ const app = express();
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-const DB_PATH = path.join(__dirname, 'db.json');
+// DATA_DIR lets db.json live on a mounted persistent disk (set DATA_DIR to
+// the disk's mount path, e.g. /data, in Render's environment variables).
+// Falls back to the app folder itself if DATA_DIR isn't set, which is fine
+// for local testing but will NOT survive a Render redeploy on its own.
+const DATA_DIR = process.env.DATA_DIR || __dirname;
+if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+const DB_PATH = path.join(DATA_DIR, 'db.json');
 const METRIC_KEYS = ['salary', 'profit_loss', 'vendor_expenses', 'pf_esic', 'labour_strength', 'billing', 'special_expenses', 'subcontractor_pl'];
 
 function sha256(text) {
@@ -132,6 +138,21 @@ app.post('/api/admin/set-password', auth, requireAdmin, (req, res) => {
   if (!profile) return res.status(404).json({ error: 'Login not found.' });
   if (!password || password.length < 4) return res.status(400).json({ error: 'Password too short.' });
   profile.passwordHash = sha256(password);
+  saveDb(db);
+  res.json({ ok: true });
+});
+
+app.get('/api/admin/backup', auth, requireAdmin, (req, res) => {
+  res.setHeader('Content-Disposition', 'attachment; filename="khfm-backup.json"');
+  res.json(db);
+});
+
+app.post('/api/admin/restore', auth, requireAdmin, (req, res) => {
+  const incoming = req.body;
+  if (!incoming || !incoming.profiles || !incoming.state) {
+    return res.status(400).json({ error: 'That does not look like a valid KHFM backup file.' });
+  }
+  db = incoming;
   saveDb(db);
   res.json({ ok: true });
 });
