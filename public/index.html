@@ -428,21 +428,19 @@ function removeSub(id){
 function renderDashboard(page){
   const rows = state.sites.map(site=>{
     const salary = totalOf((state.salary||{})[site.id]);
-    const pl = totalOf((state.profit_loss||{})[site.id]);
     const vendor = totalOf((state.vendor_expenses||{})[site.id]);
     const pf = totalOf((state.pf_esic||{})[site.id]);
     const labour = (state.labour_strength||{})[site.id];
     const avgLabour = labour ? totalOf(labour)/MONTHS.length : 0;
     const billing = totalOf((state.billing||{})[site.id]);
     const special = totalOf((state.special_expenses||{})[site.id]);
-    const subPl = (state.subcontractor_pl||[]).filter(r=>r.siteId===site.id).reduce((sum,r)=>sum+totalOf(r),0);
-    const net = billing - salary - vendor - pf - special + subPl;
-    return {site, salary, pl, vendor, pf, avgLabour, billing, special, subPl, net};
+    const net = billing - salary - vendor - pf - special;
+    return {site, salary, vendor, pf, avgLabour, billing, special, net};
   });
   const totals = rows.reduce((a,r)=>({
-    salary:a.salary+r.salary, pl:a.pl+r.pl, vendor:a.vendor+r.vendor, pf:a.pf+r.pf,
-    billing:a.billing+r.billing, special:a.special+r.special, subPl:a.subPl+r.subPl, net:a.net+r.net
-  }), {salary:0,pl:0,vendor:0,pf:0,billing:0,special:0,subPl:0,net:0});
+    salary:a.salary+r.salary, vendor:a.vendor+r.vendor, pf:a.pf+r.pf,
+    billing:a.billing+r.billing, special:a.special+r.special, net:a.net+r.net
+  }), {salary:0,vendor:0,pf:0,billing:0,special:0,net:0});
 
   page.innerHTML = `
     <h2 class="disp" style="font-size:26px;margin:0 0 4px;">Dashboard</h2>
@@ -454,36 +452,32 @@ function renderDashboard(page){
       <div style="position:absolute;bottom:-1px;right:-1px;width:14px;height:14px;border-bottom:2px solid var(--accent);border-right:2px solid var(--accent);"></div>
       <table style="min-width:1000px;">
         <tr>
-          <th>Site</th><th>Type</th><th class="num">Salary</th><th class="num">P/L (reported)</th>
+          <th>Site</th><th>Type</th><th class="num">Salary</th>
           <th class="num">Vendor</th><th class="num">PF/ESIC</th><th class="num">Avg labour</th>
-          <th class="num">Billing</th><th class="num">Other</th><th class="num">Net</th>
+          <th class="num">Billing</th><th class="num">Other</th><th class="num">P/L (reported)</th>
         </tr>
         ${rows.map(r=>`
           <tr>
             <td>${r.site.name}</td>
             <td><span class="badge ${r.site.type==='Private'?'private':'sitewise'}">${r.site.type}</span></td>
             <td class="num mono">${fmtCurrency(r.salary)}</td>
-            <td class="num mono">${fmtCurrency(r.pl)}</td>
             <td class="num mono">${fmtCurrency(r.vendor)}</td>
             <td class="num mono">${fmtCurrency(r.pf)}</td>
             <td class="num mono">${fmtNum(r.avgLabour)}</td>
             <td class="num mono">${fmtCurrency(r.billing)}</td>
             <td class="num mono">${fmtCurrency(r.special)}</td>
-            
-           <td class="num mono" style="font-weight:600;background:${r.net>=0?'var(--profit-bg)':'var(--loss-bg)'};color:${r.net>=0?'var(--profit)':'var(--loss)'};">${fmtCurrency(r.net)}</td>
+            <td class="num mono" style="font-weight:600;background:${r.net>=0?'var(--profit-bg)':'var(--loss-bg)'};color:${r.net>=0?'var(--profit)':'var(--loss)'};">${fmtCurrency(r.net)}</td>
           </tr>
         `).join('')}
-        ${rows.length===0?'<tr><td colspan="10" style="color:var(--steel);">Add sites in Site master to see the dashboard.</td></tr>':''}
+        ${rows.length===0?'<tr><td colspan="9" style="color:var(--steel);">Add sites in Site master to see the dashboard.</td></tr>':''}
         <tr style="font-weight:600;">
           <td>Grand total</td><td></td>
           <td class="num mono">${fmtCurrency(totals.salary)}</td>
-          <td class="num mono">${fmtCurrency(totals.pl)}</td>
           <td class="num mono">${fmtCurrency(totals.vendor)}</td>
           <td class="num mono">${fmtCurrency(totals.pf)}</td>
           <td></td>
           <td class="num mono">${fmtCurrency(totals.billing)}</td>
           <td class="num mono">${fmtCurrency(totals.special)}</td>
-          
           <td class="num mono">${fmtCurrency(totals.net)}</td>
         </tr>
       </table>
