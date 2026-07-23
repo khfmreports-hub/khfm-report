@@ -495,47 +495,59 @@ function renderDashboard(page){
     </table>
     </div>
 
-    <h3 class="disp" style="font-size:18px;margin:0 0 8px;">Per-site summary — full year 2026</h3>
-    <div style="position:relative;border:1px solid var(--line);padding:8px;overflow-x:auto;">
-      <div style="position:absolute;top:-1px;left:-1px;width:14px;height:14px;border-top:2px solid var(--accent);border-left:2px solid var(--accent);"></div>
-      <div style="position:absolute;top:-1px;right:-1px;width:14px;height:14px;border-top:2px solid var(--accent);border-right:2px solid var(--accent);"></div>
-      <div style="position:absolute;bottom:-1px;left:-1px;width:14px;height:14px;border-bottom:2px solid var(--accent);border-left:2px solid var(--accent);"></div>
-      <div style="position:absolute;bottom:-1px;right:-1px;width:14px;height:14px;border-bottom:2px solid var(--accent);border-right:2px solid var(--accent);"></div>
-      <table style="min-width:1000px;">
-        <tr>
-          <th>Site</th><th>Type</th><th class="num">Salary</th>
-          <th class="num">Vendor</th><th class="num">PF/ESIC</th><th class="num">Avg labour</th>
-          <th class="num">Billing</th><th class="num">Other</th><th class="num">P/L (reported)</th>
-        </tr>
-        ${rows.map(r=>`
+    <h3 class="disp" style="font-size:18px;margin:0 0 8px;">Per-site monthly breakdown</h3>
+    ${state.sites.map(site=>{
+      const siteMonthRows = MONTHS.map(m=>{
+        const salary = ((state.salary||{})[site.id]||{})[m] || 0;
+        const vendor = ((state.vendor_expenses||{})[site.id]||{})[m] || 0;
+        const pf = ((state.pf_esic||{})[site.id]||{})[m] || 0;
+        const billing = ((state.billing||{})[site.id]||{})[m] || 0;
+        const special = ((state.special_expenses||{})[site.id]||{})[m] || 0;
+        const net = billing - salary - vendor - pf - special;
+        return {month:m, salary, vendor, pf, billing, special, net};
+      });
+      const siteTotal = siteMonthRows.reduce((a,r)=>({
+        salary:a.salary+r.salary, vendor:a.vendor+r.vendor, pf:a.pf+r.pf,
+        billing:a.billing+r.billing, special:a.special+r.special, net:a.net+r.net
+      }), {salary:0,vendor:0,pf:0,billing:0,special:0,net:0});
+      return `
+        <div style="display:flex;align-items:center;gap:8px;margin:20px 0 8px;">
+          <span style="font-weight:600;">${site.name}</span>
+          <span class="badge ${site.type==='Private'?'private':'sitewise'}">${site.type}</span>
+        </div>
+        <div style="overflow-x:auto;margin-bottom:8px;">
+        <table style="min-width:800px;">
           <tr>
-            <td>${r.site.name}</td>
-            <td><span class="badge ${r.site.type==='Private'?'private':'sitewise'}">${r.site.type}</span></td>
-            <td class="num mono">${fmtCurrency(r.salary)}</td>
-            <td class="num mono">${fmtCurrency(r.vendor)}</td>
-            <td class="num mono">${fmtCurrency(r.pf)}</td>
-            <td class="num mono">${fmtNum(r.avgLabour)}</td>
-            <td class="num mono">${fmtCurrency(r.billing)}</td>
-            <td class="num mono">${fmtCurrency(r.special)}</td>
-            <td class="num mono" style="font-weight:600;background:${r.net>=0?'var(--profit-bg)':'var(--loss-bg)'};color:${r.net>=0?'var(--profit)':'var(--loss)'};">${fmtCurrency(r.net)}</td>
+            <th>Month</th><th class="num">Salary</th><th class="num">Vendor</th>
+            <th class="num">PF/ESIC</th><th class="num">Billing</th><th class="num">Other</th><th class="num">P/L</th>
           </tr>
-        `).join('')}
-        ${rows.length===0?'<tr><td colspan="9" style="color:var(--steel);">Add sites in Site master to see the dashboard.</td></tr>':''}
-        <tr style="font-weight:600;">
-          <td>Grand total</td><td></td>
-          <td class="num mono">${fmtCurrency(totals.salary)}</td>
-          <td class="num mono">${fmtCurrency(totals.vendor)}</td>
-          <td class="num mono">${fmtCurrency(totals.pf)}</td>
-          <td></td>
-          <td class="num mono">${fmtCurrency(totals.billing)}</td>
-          <td class="num mono">${fmtCurrency(totals.special)}</td>
-          <td class="num mono">${fmtCurrency(totals.net)}</td>
-        </tr>
-      </table>
-    </div>
+          ${siteMonthRows.map(r=>`
+            <tr>
+              <td>${MONTH_LABELS[r.month]}</td>
+              <td class="num mono">${fmtCurrency(r.salary)}</td>
+              <td class="num mono">${fmtCurrency(r.vendor)}</td>
+              <td class="num mono">${fmtCurrency(r.pf)}</td>
+              <td class="num mono">${fmtCurrency(r.billing)}</td>
+              <td class="num mono">${fmtCurrency(r.special)}</td>
+              <td class="num mono" style="font-weight:600;background:${r.net>=0?'var(--profit-bg)':'var(--loss-bg)'};color:${r.net>=0?'var(--profit)':'var(--loss)'};">${fmtCurrency(r.net)}</td>
+            </tr>
+          `).join('')}
+          <tr style="font-weight:600;">
+            <td>Site total</td>
+            <td class="num mono">${fmtCurrency(siteTotal.salary)}</td>
+            <td class="num mono">${fmtCurrency(siteTotal.vendor)}</td>
+            <td class="num mono">${fmtCurrency(siteTotal.pf)}</td>
+            <td class="num mono">${fmtCurrency(siteTotal.billing)}</td>
+            <td class="num mono">${fmtCurrency(siteTotal.special)}</td>
+            <td class="num mono">${fmtCurrency(siteTotal.net)}</td>
+          </tr>
+        </table>
+        </div>
+      `;
+    }).join('')}
+    ${state.sites.length===0?'<p style="color:var(--steel);font-size:13px;">Add sites in Site master to see the dashboard.</p>':''}
   `;
 }
-
 sessionStorage.removeItem('khfm-token');
 token = null;
 </script>
