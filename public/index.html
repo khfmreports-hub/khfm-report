@@ -191,6 +191,7 @@ async function loadState(){
 }
 
 function logout(){
+  if(token){ fetch('/api/logout', {method:'POST', headers:{'Authorization':'Bearer '+token}}).catch(()=>{}); }
   sessionStorage.removeItem('khfm-token');
   token = null; currentProfile = null; state = null; currentSection = null;
   document.getElementById('app').style.display='none';
@@ -213,11 +214,24 @@ function queueSaveSites(){
   }, 400);
 }
 
+function timeAgo(ms){
+  const s = Math.round((Date.now()-ms)/1000);
+  if(s<60) return s+'s ago';
+  const m = Math.round(s/60);
+  if(m<60) return m+'m ago';
+  const h = Math.round(m/60);
+  if(h<24) return h+'h ago';
+  return Math.round(h/24)+'d ago';
+}
+
 async function manageLogins(){
   if(currentProfile.id!=='admin'){ alert('Only the full-access login can manage passwords.'); return; }
   const page = document.getElementById('page');
-  let profiles;
-  try{ profiles = await api('/api/admin/profiles'); }
+  let profiles, sessionsList;
+  try{
+    profiles = await api('/api/admin/profiles');
+    sessionsList = await api('/api/admin/sessions');
+  }
   catch(e){ alert(e.message); return; }
   page.innerHTML = `
     <h2 class="disp" style="font-size:26px;margin:0 0 4px;">Manage logins</h2>
@@ -232,6 +246,26 @@ async function manageLogins(){
         </div>
       </div>
     `).join('')}
+
+    <div style="background:var(--surface);border:1px solid var(--line);padding:16px 20px;margin-top:24px;">
+      <p style="font-weight:600;margin:0 0 4px;">Who's logged in</p>
+      <p style="color:var(--steel);font-size:12px;margin:0 0 14px;">Shows last activity per session. If someone closes their browser without logging out, they'll still appear here until this stops updating — not a live "on this page right now" signal.</p>
+      ${sessionsList.length===0?'<p style="color:var(--steel);font-size:13px;">No active sessions.</p>':`
+      <table>
+        <tr><th>Login</th><th>Signed in</th><th>Last active</th><th></th></tr>
+        ${sessionsList.map(s=>`
+          <tr>
+            <td>${s.label}${s.isThisSession?' <span class="badge role">this device</span>':''}</td>
+            <td class="mono">${timeAgo(s.loginAt)}</td>
+            <td class="mono">${s.secondsSinceActive<30?'Active now':timeAgo(s.lastActive)}</td>
+            <td></td>
+          </tr>
+        `).join('')}
+      </table>
+      `}
+      <button class="ghost" style="margin-top:12px;padding:0;font-size:12px;color:var(--steel);" onclick="manageLogins()">Refresh</button>
+    </div>
+
     <div style="background:var(--surface);border:1px solid var(--accent);padding:16px 20px;margin-top:24px;">
       <p style="font-weight:600;margin:0 0 4px;">Backup & restore</p>
       <p style="color:var(--steel);font-size:12px;margin:0 0 16px;">Download a backup before making any code changes on GitHub — a redeploy resets all data. Restore brings a backup back.</p>

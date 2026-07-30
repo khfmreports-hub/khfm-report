@@ -81,7 +81,15 @@ function saveDb(db) {
 }
 
 let db = loadDb();
-const sessions = new Map();
+const sessions = new Map(); // token -> { profileId, loginAt, lastActive }
+
+// Prune sessions that haven't been active in 7+ days, hourly.
+setInterval(() => {
+  const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  for (const [token, s] of sessions.entries()) {
+    if (s.lastActive < cutoff) sessions.delete(token);
+  }
+}, 60 * 60 * 1000);
 
 function allowedSections(profile) {
   return profile.sections === 'all' ? ['dashboard', 'site_master', ...METRIC_KEYS] : profile.sections;
@@ -90,11 +98,13 @@ function allowedSections(profile) {
 function auth(req, res, next) {
   const header = req.headers.authorization || '';
   const token = header.startsWith('Bearer ') ? header.slice(7) : null;
-  const profileId = token && sessions.get(token);
-  if (!profileId) return res.status(401).json({ error: 'Not logged in.' });
-  const profile = db.profiles.find(p => p.id === profileId);
+  const session = token && sessions.get(token);
+  if (!session) return res.status(401).json({ error: 'Not logged in.' });
+  const profile = db.profiles.find(p => p.id === session.profileId);
   if (!profile) return res.status(401).json({ error: 'Session invalid.' });
+  session.lastActive = Date.now();
   req.profile = profile;
+  req.sessionToken = token;
   next();
 }
 function requireAdmin(req, res, next) {
@@ -109,11 +119,32 @@ app.post('/api/login', (req, res) => {
   const profile = db.profiles.find(p => p.passwordHash === hash);
   if (!profile) return res.status(401).json({ error: 'Incorrect password.' });
   const token = crypto.randomBytes(24).toString('hex');
-  sessions.set(token, profile.id);
+  const now = Date.now();
+  sessions.set(token, { profileId: profile.id, loginAt: now, lastActive: now });
   res.json({
     token,
     profile: { id: profile.id, label: profile.label, sections: allowedSections(profile) },
   });
+});
+
+app.post('/api/logout', auth, (req, res) => {
+  sessions.delete(req.sessionToken);
+  res.json({ ok: true });
+});
+
+app.get('/api/admin/sessions', auth, requireAdmin, (req, res) => {
+  const now = Date.now();
+  const list = Array.from(sessions.entries()).map(([token, s]) => {
+    const profile = db.profiles.find(p => p.id === s.profileId);
+    return {
+      label: profile ? profile.label : s.profileId,
+      loginAt: s.loginAt,
+      lastActive: s.lastActive,
+      secondsSinceActive: Math.round((now - s.lastActive) / 1000),
+      isThisSession: token === req.sessionToken,
+    };
+  }).sort((a, b) => b.lastActive - a.lastActive);
+  res.json(list);
 });
 
 app.get('/api/state', auth, (req, res) => {
