@@ -119,7 +119,8 @@ const SECTIONS = [
   {id:'salary', label:'Salary'},
   {id:'profit_loss', label:'Profit / loss'},
   {id:'vendor_expenses', label:'Vendor expenses'},
-  {id:'pf_esic', label:'PF / ESIC'},
+  {id:'pf', label:'PF'},
+  {id:'esic', label:'ESIC'},
   {id:'labour_strength', label:'Labour strength'},
   {id:'billing', label:'Billing'},
   {id:'special_expenses', label:'Other expenses'},
@@ -133,7 +134,8 @@ const SIMPLE_METRICS = {
   salary: {label:'Monthly salary', unit:'currency'},
   profit_loss: {label:'Profit / loss', unit:'currency'},
   vendor_expenses: {label:'Vendor expenses', unit:'currency'},
-  pf_esic: {label:'PF / ESIC amount', unit:'currency'},
+  pf: {label:'PF amount', unit:'currency'},
+  esic: {label:'ESIC amount', unit:'currency'},
   labour_strength: {label:'Labour strength', unit:'number'},
   billing: {label:'Billing', unit:'currency'},
   special_expenses: {label:'Other expenses', unit:'currency'},
@@ -355,11 +357,15 @@ function renderPageQuiet(){
 function renderSiteMaster(page){
   page.innerHTML = `
     <h2 class="disp" style="font-size:26px;margin:0 0 4px;">Site master</h2>
-    <p style="color:var(--steel);font-size:13px;margin:0 0 24px;">Every site lives here once. Other tabs reference these sites automatically.</p>
+    <p style="color:var(--steel);font-size:13px;margin:0 0 24px;">Every site lives here once. Other tabs reference these sites automatically. Use the arrows to reorder — the order here controls the order everywhere else.</p>
     <table>
-      <tr><th>Name</th><th>Type</th><th>Location</th><th>In-charge</th><th></th></tr>
-      ${state.sites.map(site=>`
+      <tr><th></th><th>Name</th><th>Type</th><th>Location</th><th>In-charge</th><th></th></tr>
+      ${state.sites.map((site,i)=>`
         <tr>
+          <td style="white-space:nowrap;">
+            <button class="ghost" style="padding:4px 8px;" onclick="moveSite('${site.id}',-1)" ${i===0?'disabled':''} title="Move up">▲</button>
+            <button class="ghost" style="padding:4px 8px;" onclick="moveSite('${site.id}',1)" ${i===state.sites.length-1?'disabled':''} title="Move down">▼</button>
+          </td>
           <td><input value="${site.name}" oninput="updateSite('${site.id}','name',this.value)"></td>
           <td>
             <select onchange="updateSite('${site.id}','type',this.value)">
@@ -388,6 +394,15 @@ function updateSite(id, field, value){
 function removeSite(id){
   if(!confirm('Remove this site? Its entries in other tabs will stay but no longer show here.')) return;
   state.sites = state.sites.filter(s=>s.id!==id);
+  queueSaveSites(); renderPage();
+}
+function moveSite(id, direction){
+  const i = state.sites.findIndex(s=>s.id===id);
+  const j = i + direction;
+  if(i<0 || j<0 || j>=state.sites.length) return;
+  const tmp = state.sites[i];
+  state.sites[i] = state.sites[j];
+  state.sites[j] = tmp;
   queueSaveSites(); renderPage();
 }
 
@@ -439,22 +454,23 @@ function removeSub(id){
 
 function renderDashboard(page){
   const monthlyRows = MONTHS.map(m=>{
-    let salary=0, pf=0, labour=0, vendor=0, special=0, billing=0;
+    let salary=0, pf=0, esic=0, labour=0, vendor=0, special=0, billing=0;
     state.sites.forEach(site=>{
       salary += ((state.salary||{})[site.id]||{})[m] || 0;
-      pf += ((state.pf_esic||{})[site.id]||{})[m] || 0;
+      pf += ((state.pf||{})[site.id]||{})[m] || 0;
+      esic += ((state.esic||{})[site.id]||{})[m] || 0;
       labour += ((state.labour_strength||{})[site.id]||{})[m] || 0;
       vendor += ((state.vendor_expenses||{})[site.id]||{})[m] || 0;
       special += ((state.special_expenses||{})[site.id]||{})[m] || 0;
       billing += ((state.billing||{})[site.id]||{})[m] || 0;
     });
-    const net = billing - salary - vendor - pf - special;
-    return {month:m, salary, pf, labour, vendor, special, billing, net};
+    const net = billing - salary - vendor - pf - esic - special;
+    return {month:m, salary, pf, esic, labour, vendor, special, billing, net};
   });
   const monthlyTotal = monthlyRows.reduce((a,r)=>({
-    salary:a.salary+r.salary, pf:a.pf+r.pf, labour:a.labour+r.labour, vendor:a.vendor+r.vendor,
+    salary:a.salary+r.salary, pf:a.pf+r.pf, esic:a.esic+r.esic, labour:a.labour+r.labour, vendor:a.vendor+r.vendor,
     special:a.special+r.special, billing:a.billing+r.billing, net:a.net+r.net
-  }), {salary:0,pf:0,labour:0,vendor:0,special:0,billing:0,net:0});
+  }), {salary:0,pf:0,esic:0,labour:0,vendor:0,special:0,billing:0,net:0});
   const monthlyAvgLabour = monthlyTotal.labour / MONTHS.length;
 
   page.innerHTML = `
@@ -463,9 +479,9 @@ function renderDashboard(page){
 
     <h3 class="disp" style="font-size:18px;margin:0 0 8px;">Monthly summary — all sites combined</h3>
     <div style="overflow-x:auto;margin-bottom:32px;">
-    <table style="min-width:900px;">
+    <table style="min-width:980px;">
       <tr>
-        <th>Month</th><th class="num">Salary</th><th class="num">PF/ESIC</th><th class="num">Labour Strength</th>
+        <th>Month</th><th class="num">Salary</th><th class="num">PF</th><th class="num">ESIC</th><th class="num">Labour Strength</th>
         <th class="num">Vendor</th><th class="num">Other</th><th class="num">Billing</th><th class="num">P/L</th>
       </tr>
       ${monthlyRows.map(r=>`
@@ -473,6 +489,7 @@ function renderDashboard(page){
           <td>${MONTH_LABELS[r.month]}</td>
           <td class="num mono">${fmtCurrency(r.salary)}</td>
           <td class="num mono">${fmtCurrency(r.pf)}</td>
+          <td class="num mono">${fmtCurrency(r.esic)}</td>
           <td class="num mono">${fmtNum(r.labour)}</td>
           <td class="num mono">${fmtCurrency(r.vendor)}</td>
           <td class="num mono">${fmtCurrency(r.special)}</td>
@@ -484,6 +501,7 @@ function renderDashboard(page){
         <td>Full year</td>
         <td class="num mono">${fmtCurrency(monthlyTotal.salary)}</td>
         <td class="num mono">${fmtCurrency(monthlyTotal.pf)}</td>
+        <td class="num mono">${fmtCurrency(monthlyTotal.esic)}</td>
         <td class="num mono">${fmtNum(monthlyAvgLabour)} avg</td>
         <td class="num mono">${fmtCurrency(monthlyTotal.vendor)}</td>
         <td class="num mono">${fmtCurrency(monthlyTotal.special)}</td>
@@ -497,18 +515,19 @@ function renderDashboard(page){
     ${state.sites.map(site=>{
       const siteMonthRows = MONTHS.map(m=>{
         const salary = ((state.salary||{})[site.id]||{})[m] || 0;
-        const pf = ((state.pf_esic||{})[site.id]||{})[m] || 0;
+        const pf = ((state.pf||{})[site.id]||{})[m] || 0;
+        const esic = ((state.esic||{})[site.id]||{})[m] || 0;
         const labour = ((state.labour_strength||{})[site.id]||{})[m] || 0;
         const vendor = ((state.vendor_expenses||{})[site.id]||{})[m] || 0;
         const special = ((state.special_expenses||{})[site.id]||{})[m] || 0;
         const billing = ((state.billing||{})[site.id]||{})[m] || 0;
-        const net = billing - salary - vendor - pf - special;
-        return {month:m, salary, pf, labour, vendor, special, billing, net};
+        const net = billing - salary - vendor - pf - esic - special;
+        return {month:m, salary, pf, esic, labour, vendor, special, billing, net};
       });
       const siteTotal = siteMonthRows.reduce((a,r)=>({
-        salary:a.salary+r.salary, pf:a.pf+r.pf, labour:a.labour+r.labour, vendor:a.vendor+r.vendor,
+        salary:a.salary+r.salary, pf:a.pf+r.pf, esic:a.esic+r.esic, labour:a.labour+r.labour, vendor:a.vendor+r.vendor,
         special:a.special+r.special, billing:a.billing+r.billing, net:a.net+r.net
-      }), {salary:0,pf:0,labour:0,vendor:0,special:0,billing:0,net:0});
+      }), {salary:0,pf:0,esic:0,labour:0,vendor:0,special:0,billing:0,net:0});
       const siteAvgLabour = siteTotal.labour / MONTHS.length;
       return `
         <div style="display:flex;align-items:center;gap:8px;margin:20px 0 8px;">
@@ -516,9 +535,9 @@ function renderDashboard(page){
           <span class="badge ${site.type==='Private'?'private':'sitewise'}">${site.type}</span>
         </div>
         <div style="overflow-x:auto;margin-bottom:8px;">
-        <table style="min-width:900px;">
+        <table style="min-width:980px;">
           <tr>
-            <th>Month</th><th class="num">Salary</th><th class="num">PF/ESIC</th><th class="num">Labour Strength</th>
+            <th>Month</th><th class="num">Salary</th><th class="num">PF</th><th class="num">ESIC</th><th class="num">Labour Strength</th>
             <th class="num">Vendor</th><th class="num">Other</th><th class="num">Billing</th><th class="num">P/L</th>
           </tr>
           ${siteMonthRows.map(r=>`
@@ -526,6 +545,7 @@ function renderDashboard(page){
               <td>${MONTH_LABELS[r.month]}</td>
               <td class="num mono">${fmtCurrency(r.salary)}</td>
               <td class="num mono">${fmtCurrency(r.pf)}</td>
+              <td class="num mono">${fmtCurrency(r.esic)}</td>
               <td class="num mono">${fmtNum(r.labour)}</td>
               <td class="num mono">${fmtCurrency(r.vendor)}</td>
               <td class="num mono">${fmtCurrency(r.special)}</td>
@@ -537,6 +557,7 @@ function renderDashboard(page){
             <td>Site total</td>
             <td class="num mono">${fmtCurrency(siteTotal.salary)}</td>
             <td class="num mono">${fmtCurrency(siteTotal.pf)}</td>
+            <td class="num mono">${fmtCurrency(siteTotal.esic)}</td>
             <td class="num mono">${fmtNum(siteAvgLabour)} avg</td>
             <td class="num mono">${fmtCurrency(siteTotal.vendor)}</td>
             <td class="num mono">${fmtCurrency(siteTotal.special)}</td>

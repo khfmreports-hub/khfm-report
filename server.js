@@ -14,7 +14,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 const DATA_DIR = process.env.DATA_DIR || __dirname;
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 const DB_PATH = path.join(DATA_DIR, 'db.json');
-const METRIC_KEYS = ['salary', 'profit_loss', 'vendor_expenses', 'pf_esic', 'labour_strength', 'billing', 'special_expenses', 'subcontractor_pl'];
+const METRIC_KEYS = ['salary', 'profit_loss', 'vendor_expenses', 'pf', 'esic', 'labour_strength', 'billing', 'special_expenses', 'subcontractor_pl'];
 
 function sha256(text) {
   return crypto.createHash('sha256').update(text).digest('hex');
@@ -28,7 +28,7 @@ function defaultDb() {
   return {
     profiles: [
       { id: 'admin', label: 'Full access', passwordHash: sha256('Sitewise2026'), sections: 'all' },
-      { id: 'payroll', label: 'Payroll access', passwordHash: sha256('Payroll2026'), sections: ['salary', 'pf_esic', 'labour_strength'] },
+      { id: 'payroll', label: 'Payroll access', passwordHash: sha256('Payroll2026'), sections: ['salary', 'pf', 'esic', 'labour_strength'] },
       { id: 'procurement', label: 'Procurement access', passwordHash: sha256('Vendor2026'), sections: ['vendor_expenses', 'billing', 'special_expenses', 'subcontractor_pl'] },
     ],
     state: {
@@ -40,7 +40,8 @@ function defaultDb() {
       salary: { [s1]: { jan: 450000, feb: 460000, march: 470000 }, [s2]: { jan: 320000, feb: 325000, march: 330000 } },
       profit_loss: { [s1]: { jan: 180000, feb: -25000, march: 210000 }, [s2]: { jan: 90000, feb: 95000, march: -40000 } },
       vendor_expenses: { [s1]: { jan: 210000, feb: 198000, march: 225000 }, [s2]: { jan: 130000, feb: 140000, march: 128000 } },
-      pf_esic: { [s1]: { jan: 38000, feb: 38500, march: 39000 }, [s2]: { jan: 27000, feb: 27200, march: 27500 } },
+      pf: { [s1]: { jan: 19000, feb: 19200, march: 19500 }, [s2]: { jan: 13500, feb: 13600, march: 13700 } },
+      esic: { [s1]: { jan: 19000, feb: 19300, march: 19500 }, [s2]: { jan: 13500, feb: 13600, march: 13800 } },
       labour_strength: { [s1]: { jan: 42, feb: 45, march: 48 }, [s2]: { jan: 30, feb: 28, march: 33 } },
       billing: { [s1]: { jan: 900000, feb: 875000, march: 950000 }, [s3]: { jan: 350000, feb: 360000, march: 340000 } },
       special_expenses: { [s1]: { jan: 15000, feb: 0, march: 22000 }, [s2]: { jan: 0, feb: 8000, march: 0 } },
@@ -58,7 +59,22 @@ function loadDb() {
     fs.writeFileSync(DB_PATH, JSON.stringify(db, null, 2));
     return db;
   }
-  return JSON.parse(fs.readFileSync(DB_PATH, 'utf8'));
+  const db = JSON.parse(fs.readFileSync(DB_PATH, 'utf8'));
+  // Migration: older databases stored a single combined 'pf_esic' field.
+  // Move that into 'pf' so no existing numbers are lost, leave 'esic' empty
+  // for the real split to be entered. Only runs once per database.
+  if (db.state && db.state.pf_esic && !db.state.pf) {
+    db.state.pf = db.state.pf_esic;
+    db.state.esic = db.state.esic || {};
+    delete db.state.pf_esic;
+    db.profiles.forEach(p => {
+      if (Array.isArray(p.sections) && p.sections.includes('pf_esic')) {
+        p.sections = p.sections.filter(s => s !== 'pf_esic').concat(['pf', 'esic']);
+      }
+    });
+    fs.writeFileSync(DB_PATH, JSON.stringify(db, null, 2));
+  }
+  return db;
 }
 function saveDb(db) {
   fs.writeFileSync(DB_PATH, JSON.stringify(db, null, 2));
