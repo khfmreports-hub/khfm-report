@@ -14,7 +14,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 const DATA_DIR = process.env.DATA_DIR || __dirname;
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 const DB_PATH = path.join(DATA_DIR, 'db.json');
-const METRIC_KEYS = ['salary', 'profit_loss', 'vendor_expenses', 'pf', 'esic', 'labour_strength', 'billing', 'special_expenses', 'subcontractor_pl'];
+const METRIC_KEYS = ['salary', 'profit_loss', 'vendor_expenses', 'pf', 'esic', 'labour_strength', 'billing', 'gst', 'special_expenses', 'subcontractor_pl'];
 
 function sha256(text) {
   return crypto.createHash('sha256').update(text).digest('hex');
@@ -29,7 +29,7 @@ function defaultDb() {
     profiles: [
       { id: 'admin', label: 'Full access', passwordHash: sha256('Sitewise2026'), sections: 'all' },
       { id: 'payroll', label: 'Payroll access', passwordHash: sha256('Payroll2026'), sections: ['salary', 'pf', 'esic', 'labour_strength'] },
-      { id: 'procurement', label: 'Procurement access', passwordHash: sha256('Vendor2026'), sections: ['vendor_expenses', 'billing', 'special_expenses', 'subcontractor_pl'] },
+      { id: 'procurement', label: 'Procurement access', passwordHash: sha256('Vendor2026'), sections: ['vendor_expenses', 'billing', 'gst', 'special_expenses', 'subcontractor_pl'] },
     ],
     state: {
       sites: [
@@ -44,6 +44,7 @@ function defaultDb() {
       esic: { [s1]: { jan: 19000, feb: 19300, march: 19500 }, [s2]: { jan: 13500, feb: 13600, march: 13800 } },
       labour_strength: { [s1]: { jan: 42, feb: 45, march: 48 }, [s2]: { jan: 30, feb: 28, march: 33 } },
       billing: { [s1]: { jan: 900000, feb: 875000, march: 950000 }, [s3]: { jan: 350000, feb: 360000, march: 340000 } },
+      gst: { [s1]: { jan: 162000, feb: 157500, march: 171000 }, [s3]: { jan: 63000, feb: 64800, march: 61200 } },
       special_expenses: { [s1]: { jan: 15000, feb: 0, march: 22000 }, [s2]: { jan: 0, feb: 8000, march: 0 } },
       subcontractor_pl: [
         { id: uid(), siteId: s1, name: 'ABC Electricals', jan: 25000, feb: -5000, march: 18000 },
