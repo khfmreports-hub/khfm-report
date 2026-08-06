@@ -75,6 +75,14 @@ function loadDb() {
     });
     fs.writeFileSync(DB_PATH, JSON.stringify(db, null, 2));
   }
+  // Migration: the 'gst' tracker was added after some databases already
+  // existed, so their saved Procurement login doesn't have it in its
+  // permitted-sections list yet. Add it if missing. Only runs once.
+  const procurement = db.profiles.find(p => p.id === 'procurement');
+  if (procurement && Array.isArray(procurement.sections) && !procurement.sections.includes('gst')) {
+    procurement.sections.push('gst');
+    fs.writeFileSync(DB_PATH, JSON.stringify(db, null, 2));
+  }
   return db;
 }
 function saveDb(db) {
