@@ -14,7 +14,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 const DATA_DIR = process.env.DATA_DIR || __dirname;
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 const DB_PATH = path.join(DATA_DIR, 'db.json');
-const METRIC_KEYS = ['salary', 'profit_loss', 'vendor_expenses', 'pf', 'esic', 'labour_strength', 'billing', 'gst', 'deduction', 'special_expenses', 'subcontractor_pl'];
+const METRIC_KEYS = ['salary', 'profit_loss', 'vendor_expenses', 'pf', 'esic', 'labour_strength', 'billing', 'gst', 'deduction', 'hold', 'special_expenses', 'subcontractor_pl'];
 
 function sha256(text) {
   return crypto.createHash('sha256').update(text).digest('hex');
@@ -29,7 +29,7 @@ function defaultDb() {
     profiles: [
       { id: 'admin', label: 'Full access', passwordHash: sha256('Sitewise2026'), sections: 'all' },
       { id: 'payroll', label: 'Payroll access', passwordHash: sha256('Payroll2026'), sections: ['salary', 'pf', 'esic', 'labour_strength'] },
-      { id: 'procurement', label: 'Procurement access', passwordHash: sha256('Vendor2026'), sections: ['vendor_expenses', 'billing', 'gst', 'deduction', 'special_expenses', 'subcontractor_pl'] },
+      { id: 'procurement', label: 'Procurement access', passwordHash: sha256('Vendor2026'), sections: ['vendor_expenses', 'billing', 'gst', 'deduction', 'hold', 'special_expenses', 'subcontractor_pl'] },
     ],
     state: {
       sites: [
@@ -84,6 +84,7 @@ function loadDb() {
     let changed = false;
     if (!procurement.sections.includes('gst')) { procurement.sections.push('gst'); changed = true; }
     if (!procurement.sections.includes('deduction')) { procurement.sections.push('deduction'); changed = true; }
+    if (!procurement.sections.includes('hold')) { procurement.sections.push('hold'); changed = true; }
     if (changed) fs.writeFileSync(DB_PATH, JSON.stringify(db, null, 2));
   }
   return db;

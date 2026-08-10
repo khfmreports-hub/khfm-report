@@ -128,7 +128,8 @@ const SECTIONS = [
   {id:'labour_strength', label:'Labour strength', icon:'⚒'},
   {id:'billing', label:'Billing', icon:'⎘'},
   {id:'gst', label:'GST', icon:'%'},
-  {id:'deduction', label:'Deduction/Hold', icon:'−'},
+  {id:'deduction', label:'Deduction', icon:'−'},
+  {id:'hold', label:'Hold', icon:'▣'},
   {id:'special_expenses', label:'Other expenses', icon:'⋯'},
   {id:'subcontractor_pl', label:'Subcontractor P/L', icon:'⇄'},
 ];
@@ -145,7 +146,8 @@ const SIMPLE_METRICS = {
   labour_strength: {label:'Labour strength', unit:'number'},
   billing: {label:'Billing', unit:'currency'},
   gst: {label:'GST', unit:'currency'},
-  deduction: {label:'Deduction/Hold', unit:'currency'},
+  deduction: {label:'Deduction', unit:'currency'},
+  hold: {label:'Hold', unit:'currency'},
   special_expenses: {label:'Other expenses', unit:'currency'},
 };
 
@@ -500,7 +502,7 @@ function removeSub(id){
 
 function renderDashboard(page){
   const monthlyRows = MONTHS.map(m=>{
-    let salary=0, pf=0, esic=0, labour=0, vendor=0, special=0, billing=0, gst=0, deduction=0;
+    let salary=0, pf=0, esic=0, labour=0, vendor=0, special=0, billing=0, gst=0, deduction=0, hold=0;
     state.sites.forEach(site=>{
       salary += ((state.salary||{})[site.id]||{})[m] || 0;
       pf += ((state.pf||{})[site.id]||{})[m] || 0;
@@ -511,14 +513,15 @@ function renderDashboard(page){
       billing += ((state.billing||{})[site.id]||{})[m] || 0;
       gst += ((state.gst||{})[site.id]||{})[m] || 0;
       deduction += ((state.deduction||{})[site.id]||{})[m] || 0;
+      hold += ((state.hold||{})[site.id]||{})[m] || 0;
     });
-    const net = billing - salary - vendor - pf - esic - special - gst - deduction;
-    return {month:m, salary, pf, esic, labour, vendor, special, billing, gst, deduction, net};
+    const net = billing - salary - vendor - pf - esic - special - gst - deduction - hold;
+    return {month:m, salary, pf, esic, labour, vendor, special, billing, gst, deduction, hold, net};
   });
   const monthlyTotal = monthlyRows.reduce((a,r)=>({
     salary:a.salary+r.salary, pf:a.pf+r.pf, esic:a.esic+r.esic, labour:a.labour+r.labour, vendor:a.vendor+r.vendor,
-    special:a.special+r.special, billing:a.billing+r.billing, gst:a.gst+r.gst, deduction:a.deduction+r.deduction, net:a.net+r.net
-  }), {salary:0,pf:0,esic:0,labour:0,vendor:0,special:0,billing:0,gst:0,deduction:0,net:0});
+    special:a.special+r.special, billing:a.billing+r.billing, gst:a.gst+r.gst, deduction:a.deduction+r.deduction, hold:a.hold+r.hold, net:a.net+r.net
+  }), {salary:0,pf:0,esic:0,labour:0,vendor:0,special:0,billing:0,gst:0,deduction:0,hold:0,net:0});
   const monthlyAvgLabour = monthlyTotal.labour / MONTHS.length;
 
   page.innerHTML = `
@@ -530,7 +533,7 @@ function renderDashboard(page){
     <table style="min-width:1080px;">
       <tr>
         <th>Month</th><th class="num">Salary</th><th class="num">PF</th><th class="num">ESIC</th><th class="num">Labour Strength</th>
-        <th class="num">Vendor</th><th class="num">Other</th><th class="num">Billing</th><th class="num">GST</th><th class="num">Deduction/Hold</th><th class="num">P/L</th>
+        <th class="num">Vendor</th><th class="num">Other</th><th class="num">Billing</th><th class="num">GST</th><th class="num">Deduction</th><th class="num">Hold</th><th class="num">P/L</th>
       </tr>
       ${monthlyRows.map(r=>`
         <tr>
@@ -544,6 +547,7 @@ function renderDashboard(page){
           <td class="num mono">${fmtCurrency(r.billing)}</td>
           <td class="num mono">${fmtCurrency(r.gst)}</td>
           <td class="num mono">${fmtCurrency(r.deduction)}</td>
+          <td class="num mono">${fmtCurrency(r.hold)}</td>
           <td class="num mono" style="font-weight:600;background:${r.net>=0?'var(--profit-bg)':'var(--loss-bg)'};color:${r.net>=0?'var(--profit)':'var(--loss)'};">${fmtCurrency(r.net)}</td>
         </tr>
       `).join('')}
@@ -558,6 +562,7 @@ function renderDashboard(page){
         <td class="num mono">${fmtCurrency(monthlyTotal.billing)}</td>
         <td class="num mono">${fmtCurrency(monthlyTotal.gst)}</td>
         <td class="num mono">${fmtCurrency(monthlyTotal.deduction)}</td>
+        <td class="num mono">${fmtCurrency(monthlyTotal.hold)}</td>
         <td class="num mono">${fmtCurrency(monthlyTotal.net)}</td>
       </tr>
     </table>
@@ -575,13 +580,14 @@ function renderDashboard(page){
         const billing = ((state.billing||{})[site.id]||{})[m] || 0;
         const gst = ((state.gst||{})[site.id]||{})[m] || 0;
         const deduction = ((state.deduction||{})[site.id]||{})[m] || 0;
-        const net = billing - salary - vendor - pf - esic - special - gst - deduction;
-        return {month:m, salary, pf, esic, labour, vendor, special, billing, gst, deduction, net};
+        const hold = ((state.hold||{})[site.id]||{})[m] || 0;
+        const net = billing - salary - vendor - pf - esic - special - gst - deduction - hold;
+        return {month:m, salary, pf, esic, labour, vendor, special, billing, gst, deduction, hold, net};
       });
       const siteTotal = siteMonthRows.reduce((a,r)=>({
         salary:a.salary+r.salary, pf:a.pf+r.pf, esic:a.esic+r.esic, labour:a.labour+r.labour, vendor:a.vendor+r.vendor,
-        special:a.special+r.special, billing:a.billing+r.billing, gst:a.gst+r.gst, deduction:a.deduction+r.deduction, net:a.net+r.net
-      }), {salary:0,pf:0,esic:0,labour:0,vendor:0,special:0,billing:0,gst:0,deduction:0,net:0});
+        special:a.special+r.special, billing:a.billing+r.billing, gst:a.gst+r.gst, deduction:a.deduction+r.deduction, hold:a.hold+r.hold, net:a.net+r.net
+      }), {salary:0,pf:0,esic:0,labour:0,vendor:0,special:0,billing:0,gst:0,deduction:0,hold:0,net:0});
       const siteAvgLabour = siteTotal.labour / MONTHS.length;
       return `
         <div style="display:flex;align-items:center;gap:8px;margin:20px 0 8px;">
@@ -592,7 +598,7 @@ function renderDashboard(page){
         <table style="min-width:1080px;">
           <tr>
             <th>Month</th><th class="num">Salary</th><th class="num">PF</th><th class="num">ESIC</th><th class="num">Labour Strength</th>
-            <th class="num">Vendor</th><th class="num">Other</th><th class="num">Billing</th><th class="num">GST</th><th class="num">Deduction/Hold</th><th class="num">P/L</th>
+            <th class="num">Vendor</th><th class="num">Other</th><th class="num">Billing</th><th class="num">GST</th><th class="num">Deduction</th><th class="num">Hold</th><th class="num">P/L</th>
           </tr>
           ${siteMonthRows.map(r=>`
             <tr>
@@ -606,6 +612,7 @@ function renderDashboard(page){
               <td class="num mono">${fmtCurrency(r.billing)}</td>
               <td class="num mono">${fmtCurrency(r.gst)}</td>
               <td class="num mono">${fmtCurrency(r.deduction)}</td>
+              <td class="num mono">${fmtCurrency(r.hold)}</td>
               <td class="num mono" style="font-weight:600;background:${r.net>=0?'var(--profit-bg)':'var(--loss-bg)'};color:${r.net>=0?'var(--profit)':'var(--loss)'};">${fmtCurrency(r.net)}</td>
             </tr>
           `).join('')}
@@ -620,6 +627,7 @@ function renderDashboard(page){
             <td class="num mono">${fmtCurrency(siteTotal.billing)}</td>
             <td class="num mono">${fmtCurrency(siteTotal.gst)}</td>
             <td class="num mono">${fmtCurrency(siteTotal.deduction)}</td>
+            <td class="num mono">${fmtCurrency(siteTotal.hold)}</td>
             <td class="num mono">${fmtCurrency(siteTotal.net)}</td>
           </tr>
         </table>
