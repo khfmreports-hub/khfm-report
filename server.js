@@ -14,7 +14,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 const DATA_DIR = process.env.DATA_DIR || __dirname;
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 const DB_PATH = path.join(DATA_DIR, 'db.json');
-const METRIC_KEYS = ['salary', 'profit_loss', 'vendor_expenses', 'pf', 'esic', 'labour_strength', 'billing', 'gst', 'deduction', 'hold', 'special_expenses', 'subcontractor_pl'];
+const METRIC_KEYS = ['salary', 'profit_loss', 'vendor_expenses', 'pf', 'esic', 'bonus', 'leave_wages', 'pt', 'labour_strength', 'billing', 'gst', 'deduction', 'hold', 'special_expenses', 'subcontractor_pl'];
 
 function sha256(text) {
   return crypto.createHash('sha256').update(text).digest('hex');
@@ -28,7 +28,7 @@ function defaultDb() {
   return {
     profiles: [
       { id: 'admin', label: 'Full access', passwordHash: sha256('Sitewise2026'), sections: 'all' },
-      { id: 'payroll', label: 'Payroll access', passwordHash: sha256('Payroll2026'), sections: ['salary', 'pf', 'esic', 'labour_strength'] },
+      { id: 'payroll', label: 'Payroll access', passwordHash: sha256('Payroll2026'), sections: ['salary', 'pf', 'esic', 'bonus', 'leave_wages', 'pt', 'labour_strength'] },
       { id: 'procurement', label: 'Procurement access', passwordHash: sha256('Vendor2026'), sections: ['vendor_expenses', 'billing', 'gst', 'deduction', 'hold', 'special_expenses', 'subcontractor_pl'] },
     ],
     state: {
@@ -42,6 +42,9 @@ function defaultDb() {
       vendor_expenses: { [s1]: { jan: 210000, feb: 198000, march: 225000 }, [s2]: { jan: 130000, feb: 140000, march: 128000 } },
       pf: { [s1]: { jan: 19000, feb: 19200, march: 19500 }, [s2]: { jan: 13500, feb: 13600, march: 13700 } },
       esic: { [s1]: { jan: 19000, feb: 19300, march: 19500 }, [s2]: { jan: 13500, feb: 13600, march: 13800 } },
+      bonus: { [s1]: { jan: 0, feb: 0, march: 12000 }, [s2]: { jan: 0, feb: 0, march: 8500 } },
+      leave_wages: { [s1]: { jan: 5000, feb: 4800, march: 5200 }, [s2]: { jan: 3200, feb: 3100, march: 3400 } },
+      pt: { [s1]: { jan: 2500, feb: 2500, march: 2500 }, [s2]: { jan: 1800, feb: 1800, march: 1800 } },
       labour_strength: { [s1]: { jan: 42, feb: 45, march: 48 }, [s2]: { jan: 30, feb: 28, march: 33 } },
       billing: { [s1]: { jan: 900000, feb: 875000, march: 950000 }, [s3]: { jan: 350000, feb: 360000, march: 340000 } },
       gst: { [s1]: { jan: 162000, feb: 157500, march: 171000 }, [s3]: { jan: 63000, feb: 64800, march: 61200 } },
@@ -85,6 +88,16 @@ function loadDb() {
     if (!procurement.sections.includes('gst')) { procurement.sections.push('gst'); changed = true; }
     if (!procurement.sections.includes('deduction')) { procurement.sections.push('deduction'); changed = true; }
     if (!procurement.sections.includes('hold')) { procurement.sections.push('hold'); changed = true; }
+    if (changed) fs.writeFileSync(DB_PATH, JSON.stringify(db, null, 2));
+  }
+  // Migration: bonus/leave_wages/pt were added after some databases already
+  // existed, so their saved Payroll login doesn't have them yet.
+  const payroll = db.profiles.find(p => p.id === 'payroll');
+  if (payroll && Array.isArray(payroll.sections)) {
+    let changed = false;
+    ['bonus', 'leave_wages', 'pt'].forEach(key => {
+      if (!payroll.sections.includes(key)) { payroll.sections.push(key); changed = true; }
+    });
     if (changed) fs.writeFileSync(DB_PATH, JSON.stringify(db, null, 2));
   }
   return db;

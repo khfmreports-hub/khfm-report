@@ -125,6 +125,9 @@ const SECTIONS = [
   {id:'vendor_expenses', label:'Vendor expenses', icon:'⎘'},
   {id:'pf', label:'PF', icon:'⛁'},
   {id:'esic', label:'ESIC', icon:'✚'},
+  {id:'bonus', label:'Bonus', icon:'★'},
+  {id:'leave_wages', label:'Leave Wages', icon:'☀'},
+  {id:'pt', label:'PT', icon:'§'},
   {id:'labour_strength', label:'Labour strength', icon:'⚒'},
   {id:'billing', label:'Billing', icon:'⎘'},
   {id:'gst', label:'GST', icon:'%'},
@@ -143,6 +146,9 @@ const SIMPLE_METRICS = {
   vendor_expenses: {label:'Vendor expenses', unit:'currency'},
   pf: {label:'PF amount', unit:'currency'},
   esic: {label:'ESIC amount', unit:'currency'},
+  bonus: {label:'Bonus', unit:'currency'},
+  leave_wages: {label:'Leave Wages', unit:'currency'},
+  pt: {label:'PT (Professional Tax)', unit:'currency'},
   labour_strength: {label:'Labour strength', unit:'number'},
   billing: {label:'Billing', unit:'currency'},
   gst: {label:'GST', unit:'currency'},
@@ -502,11 +508,14 @@ function removeSub(id){
 
 function renderDashboard(page){
   const monthlyRows = MONTHS.map(m=>{
-    let salary=0, pf=0, esic=0, labour=0, vendor=0, special=0, billing=0, gst=0, deduction=0, hold=0;
+    let salary=0, pf=0, esic=0, bonus=0, leaveWages=0, pt=0, labour=0, vendor=0, special=0, billing=0, gst=0, deduction=0, hold=0;
     state.sites.forEach(site=>{
       salary += ((state.salary||{})[site.id]||{})[m] || 0;
       pf += ((state.pf||{})[site.id]||{})[m] || 0;
       esic += ((state.esic||{})[site.id]||{})[m] || 0;
+      bonus += ((state.bonus||{})[site.id]||{})[m] || 0;
+      leaveWages += ((state.leave_wages||{})[site.id]||{})[m] || 0;
+      pt += ((state.pt||{})[site.id]||{})[m] || 0;
       labour += ((state.labour_strength||{})[site.id]||{})[m] || 0;
       vendor += ((state.vendor_expenses||{})[site.id]||{})[m] || 0;
       special += ((state.special_expenses||{})[site.id]||{})[m] || 0;
@@ -515,13 +524,13 @@ function renderDashboard(page){
       deduction += ((state.deduction||{})[site.id]||{})[m] || 0;
       hold += ((state.hold||{})[site.id]||{})[m] || 0;
     });
-    const net = billing - salary - vendor - pf - esic - special - gst - deduction - hold;
-    return {month:m, salary, pf, esic, labour, vendor, special, billing, gst, deduction, hold, net};
+    const net = billing - salary - vendor - pf - esic - bonus - leaveWages - pt - special - gst - deduction - hold;
+    return {month:m, salary, pf, esic, bonus, leaveWages, pt, labour, vendor, special, billing, gst, deduction, hold, net};
   });
   const monthlyTotal = monthlyRows.reduce((a,r)=>({
-    salary:a.salary+r.salary, pf:a.pf+r.pf, esic:a.esic+r.esic, labour:a.labour+r.labour, vendor:a.vendor+r.vendor,
+    salary:a.salary+r.salary, pf:a.pf+r.pf, esic:a.esic+r.esic, bonus:a.bonus+r.bonus, leaveWages:a.leaveWages+r.leaveWages, pt:a.pt+r.pt, labour:a.labour+r.labour, vendor:a.vendor+r.vendor,
     special:a.special+r.special, billing:a.billing+r.billing, gst:a.gst+r.gst, deduction:a.deduction+r.deduction, hold:a.hold+r.hold, net:a.net+r.net
-  }), {salary:0,pf:0,esic:0,labour:0,vendor:0,special:0,billing:0,gst:0,deduction:0,hold:0,net:0});
+  }), {salary:0,pf:0,esic:0,bonus:0,leaveWages:0,pt:0,labour:0,vendor:0,special:0,billing:0,gst:0,deduction:0,hold:0,net:0});
   const monthlyAvgLabour = monthlyTotal.labour / MONTHS.length;
 
   page.innerHTML = `
@@ -532,7 +541,7 @@ function renderDashboard(page){
     <div style="overflow-x:auto;margin-bottom:32px;">
     <table style="min-width:1080px;">
       <tr>
-        <th>Month</th><th class="num">Salary</th><th class="num">PF</th><th class="num">ESIC</th><th class="num">Labour Strength</th>
+        <th>Month</th><th class="num">Salary</th><th class="num">PF</th><th class="num">ESIC</th><th class="num">Bonus</th><th class="num">Leave Wages</th><th class="num">PT</th><th class="num">Labour Strength</th>
         <th class="num">Vendor</th><th class="num">Other</th><th class="num">Billing</th><th class="num">GST</th><th class="num">Deduction</th><th class="num">Hold</th><th class="num">P/L</th>
       </tr>
       ${monthlyRows.map(r=>`
@@ -541,6 +550,9 @@ function renderDashboard(page){
           <td class="num mono">${fmtCurrency(r.salary)}</td>
           <td class="num mono">${fmtCurrency(r.pf)}</td>
           <td class="num mono">${fmtCurrency(r.esic)}</td>
+          <td class="num mono">${fmtCurrency(r.bonus)}</td>
+          <td class="num mono">${fmtCurrency(r.leaveWages)}</td>
+          <td class="num mono">${fmtCurrency(r.pt)}</td>
           <td class="num mono">${fmtNum(r.labour)}</td>
           <td class="num mono">${fmtCurrency(r.vendor)}</td>
           <td class="num mono">${fmtCurrency(r.special)}</td>
@@ -556,6 +568,9 @@ function renderDashboard(page){
         <td class="num mono">${fmtCurrency(monthlyTotal.salary)}</td>
         <td class="num mono">${fmtCurrency(monthlyTotal.pf)}</td>
         <td class="num mono">${fmtCurrency(monthlyTotal.esic)}</td>
+        <td class="num mono">${fmtCurrency(monthlyTotal.bonus)}</td>
+        <td class="num mono">${fmtCurrency(monthlyTotal.leaveWages)}</td>
+        <td class="num mono">${fmtCurrency(monthlyTotal.pt)}</td>
         <td class="num mono">${fmtNum(monthlyAvgLabour)} avg</td>
         <td class="num mono">${fmtCurrency(monthlyTotal.vendor)}</td>
         <td class="num mono">${fmtCurrency(monthlyTotal.special)}</td>
@@ -574,6 +589,9 @@ function renderDashboard(page){
         const salary = ((state.salary||{})[site.id]||{})[m] || 0;
         const pf = ((state.pf||{})[site.id]||{})[m] || 0;
         const esic = ((state.esic||{})[site.id]||{})[m] || 0;
+        const bonus = ((state.bonus||{})[site.id]||{})[m] || 0;
+        const leaveWages = ((state.leave_wages||{})[site.id]||{})[m] || 0;
+        const pt = ((state.pt||{})[site.id]||{})[m] || 0;
         const labour = ((state.labour_strength||{})[site.id]||{})[m] || 0;
         const vendor = ((state.vendor_expenses||{})[site.id]||{})[m] || 0;
         const special = ((state.special_expenses||{})[site.id]||{})[m] || 0;
@@ -581,13 +599,13 @@ function renderDashboard(page){
         const gst = ((state.gst||{})[site.id]||{})[m] || 0;
         const deduction = ((state.deduction||{})[site.id]||{})[m] || 0;
         const hold = ((state.hold||{})[site.id]||{})[m] || 0;
-        const net = billing - salary - vendor - pf - esic - special - gst - deduction - hold;
-        return {month:m, salary, pf, esic, labour, vendor, special, billing, gst, deduction, hold, net};
+        const net = billing - salary - vendor - pf - esic - bonus - leaveWages - pt - special - gst - deduction - hold;
+        return {month:m, salary, pf, esic, bonus, leaveWages, pt, labour, vendor, special, billing, gst, deduction, hold, net};
       });
       const siteTotal = siteMonthRows.reduce((a,r)=>({
-        salary:a.salary+r.salary, pf:a.pf+r.pf, esic:a.esic+r.esic, labour:a.labour+r.labour, vendor:a.vendor+r.vendor,
+        salary:a.salary+r.salary, pf:a.pf+r.pf, esic:a.esic+r.esic, bonus:a.bonus+r.bonus, leaveWages:a.leaveWages+r.leaveWages, pt:a.pt+r.pt, labour:a.labour+r.labour, vendor:a.vendor+r.vendor,
         special:a.special+r.special, billing:a.billing+r.billing, gst:a.gst+r.gst, deduction:a.deduction+r.deduction, hold:a.hold+r.hold, net:a.net+r.net
-      }), {salary:0,pf:0,esic:0,labour:0,vendor:0,special:0,billing:0,gst:0,deduction:0,hold:0,net:0});
+      }), {salary:0,pf:0,esic:0,bonus:0,leaveWages:0,pt:0,labour:0,vendor:0,special:0,billing:0,gst:0,deduction:0,hold:0,net:0});
       const siteAvgLabour = siteTotal.labour / MONTHS.length;
       return `
         <div style="display:flex;align-items:center;gap:8px;margin:20px 0 8px;">
@@ -597,7 +615,7 @@ function renderDashboard(page){
         <div style="overflow-x:auto;margin-bottom:8px;">
         <table style="min-width:1080px;">
           <tr>
-            <th>Month</th><th class="num">Salary</th><th class="num">PF</th><th class="num">ESIC</th><th class="num">Labour Strength</th>
+            <th>Month</th><th class="num">Salary</th><th class="num">PF</th><th class="num">ESIC</th><th class="num">Bonus</th><th class="num">Leave Wages</th><th class="num">PT</th><th class="num">Labour Strength</th>
             <th class="num">Vendor</th><th class="num">Other</th><th class="num">Billing</th><th class="num">GST</th><th class="num">Deduction</th><th class="num">Hold</th><th class="num">P/L</th>
           </tr>
           ${siteMonthRows.map(r=>`
@@ -606,6 +624,9 @@ function renderDashboard(page){
               <td class="num mono">${fmtCurrency(r.salary)}</td>
               <td class="num mono">${fmtCurrency(r.pf)}</td>
               <td class="num mono">${fmtCurrency(r.esic)}</td>
+              <td class="num mono">${fmtCurrency(r.bonus)}</td>
+              <td class="num mono">${fmtCurrency(r.leaveWages)}</td>
+              <td class="num mono">${fmtCurrency(r.pt)}</td>
               <td class="num mono">${fmtNum(r.labour)}</td>
               <td class="num mono">${fmtCurrency(r.vendor)}</td>
               <td class="num mono">${fmtCurrency(r.special)}</td>
@@ -621,6 +642,9 @@ function renderDashboard(page){
             <td class="num mono">${fmtCurrency(siteTotal.salary)}</td>
             <td class="num mono">${fmtCurrency(siteTotal.pf)}</td>
             <td class="num mono">${fmtCurrency(siteTotal.esic)}</td>
+            <td class="num mono">${fmtCurrency(siteTotal.bonus)}</td>
+            <td class="num mono">${fmtCurrency(siteTotal.leaveWages)}</td>
+            <td class="num mono">${fmtCurrency(siteTotal.pt)}</td>
             <td class="num mono">${fmtNum(siteAvgLabour)} avg</td>
             <td class="num mono">${fmtCurrency(siteTotal.vendor)}</td>
             <td class="num mono">${fmtCurrency(siteTotal.special)}</td>
