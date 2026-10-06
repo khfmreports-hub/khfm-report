@@ -6,7 +6,9 @@ const path = require('path');
 const app = express();
 
 // This app has moved into the combined KHFM app. Every visit goes there.
-app.use((req, res) => res.redirect(301, 'https://khfm-hub.onrender.com/report/'));
+// Only the read-only paths the combined app uses to copy data stay open here.
+const COPY_PATHS = /^\/api\/(login|logout|admin\/backup|bills\/[^/]+\/download)$/;
+app.use((req, res, next) => COPY_PATHS.test(req.path) ? next() : res.redirect(301, 'https://khfm-hub.onrender.com/report/'));
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
